@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func parseArgs() string {
@@ -14,7 +15,7 @@ func parseArgs() string {
 	return *quizFilePath
 }
 
-func getQuizFromFile(filename string) ([][]string, error) {
+func getQuizFromFile(filename string) ([]Problem, error) {
 	inputFile, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -23,40 +24,49 @@ func getQuizFromFile(filename string) ([][]string, error) {
 	quizReader := csv.NewReader(inputFile)
 	quizRecords, err := quizReader.ReadAll()
 	if err != nil {
-		return  nil, err
+		return nil, err
 	}
 
-	return quizRecords, nil
+	problems := make([]Problem, len(quizRecords))
+	for i, record := range quizRecords {
+		problems[i] = Problem{Question: record[0], Answer: strings.TrimSpace(record[1])}
+	}
+	return problems, nil
 }
 
-func runQuiz(quiz [][]string) (int, error) {
+func runQuiz(quiz []Problem) (int, error) {
 	score := 0
-	for _, record := range quiz {
-		fmt.Printf("%s: ", record[0])
+	for _, problem := range quiz {
+		fmt.Printf("%s: ", problem.Question)
 		var answer string
 		_, err := fmt.Scanln(&answer)
 		if err != nil {
 			continue
 		}
-		if answer == record[1] {
+		if answer == problem.Answer {
 			score++
 		}
 	}
 	return score, nil
 }
 
+type Problem struct {
+	Question string
+	Answer   string
+}
+
 func main() {
 	quizFilePath := parseArgs()
 
-	quizRecords, err := getQuizFromFile(quizFilePath)
+	quizProblems, err := getQuizFromFile(quizFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	score, err := runQuiz(quizRecords)
+	score, err := runQuiz(quizProblems)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Your score is %d out of %d.\n", score, len(quizRecords))
+	fmt.Printf("Your score is %d out of %d.\n", score, len(quizProblems))
 }
