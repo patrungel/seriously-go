@@ -52,7 +52,7 @@ func runQuiz(quiz []Problem, scoreChan chan int, dismissChan chan struct{}) {
 		if err != nil {
 			continue
 		}
-		if answer == problem.Answer {
+		if strings.ToLower(answer) == strings.ToLower(problem.Answer) {
 			score++
 			scoreChan <- score
 		}
