@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -13,11 +14,13 @@ import (
 func parseArgs() Opts {
 	var quizFilePath = flag.String("file", "problems.csv", "Path to a CSV file with problems and answers")
 	var quizTimeout = flag.Int("time", 30, "Time to take the quiz, in seconds")
+	var shuffle = flag.Bool("shuffle", false, "Shuffle the problems")
 	flag.Parse()
 
 	return Opts{
 		FilePath: *quizFilePath,
 		Timeout:  *quizTimeout,
+		Shuffle:  *shuffle,
 	}
 }
 
@@ -65,6 +68,7 @@ type Problem struct {
 type Opts struct {
 	FilePath string
 	Timeout  int
+	Shuffle  bool
 }
 
 func main() {
@@ -73,6 +77,13 @@ func main() {
 	quizProblems, err := getQuizFromFile(opts.FilePath)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if opts.Shuffle {
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(quizProblems), func(i, j int) {
+			quizProblems[i], quizProblems[j] = quizProblems[j], quizProblems[i]
+		})
 	}
 
 	scoreChan := make(chan int, len(quizProblems))
