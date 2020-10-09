@@ -7,12 +7,18 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
-func parseArgs() string {
+func parseArgs() Opts {
 	var quizFilePath = flag.String("file", "problems.csv", "Path to a CSV file with problems and answers")
+	var quizTimeout = flag.Int("time", 30, "Time to take the quiz, in seconds")
 	flag.Parse()
-	return *quizFilePath
+
+	return Opts{
+		FilePath: *quizFilePath,
+		Timeout:  *quizTimeout,
+	}
 }
 
 func getQuizFromFile(filename string) ([]Problem, error) {
@@ -34,7 +40,7 @@ func getQuizFromFile(filename string) ([]Problem, error) {
 	return problems, nil
 }
 
-func runQuiz(quiz []Problem) (int, error) {
+func runQuiz(quiz []Problem, scoreChan chan int, dismissChan chan struct{}) {
 	score := 0
 	for _, problem := range quiz {
 		fmt.Printf("%s: ", problem.Question)
@@ -45,9 +51,10 @@ func runQuiz(quiz []Problem) (int, error) {
 		}
 		if answer == problem.Answer {
 			score++
+			scoreChan <- score
 		}
 	}
-	return score, nil
+	dismissChan <- struct{}{}
 }
 
 type Problem struct {
@@ -55,18 +62,36 @@ type Problem struct {
 	Answer   string
 }
 
+type Opts struct {
+	FilePath string
+	Timeout  int
+}
+
 func main() {
-	quizFilePath := parseArgs()
+	opts := parseArgs()
 
-	quizProblems, err := getQuizFromFile(quizFilePath)
+	quizProblems, err := getQuizFromFile(opts.FilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	score, err := runQuiz(quizProblems)
-	if err != nil {
-		log.Fatal(err)
-	}
+	scoreChan := make(chan int, len(quizProblems))
+	dismissChan := make(chan struct{})
+	go runQuiz(quizProblems, scoreChan, dismissChan)
 
+	score := 0
+	timer := time.NewTimer(time.Duration(opts.Timeout) * time.Second)
+	for runTimer := true; runTimer; {
+		select {
+		case <-dismissChan:
+			runTimer = false
+			timer.Stop()
+		case score = <-scoreChan:
+			// do nothing
+		case <-timer.C:
+			runTimer = false
+			fmt.Println("\nTime is up.")
+		}
+	}
 	fmt.Printf("Your score is %d out of %d.\n", score, len(quizProblems))
 }
